@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Выравнивание последовательностей · Подготовка к квизу</title>
+<meta name="description" content="Конспект по биоинформатике и семь заданий с ответами.">
+<style>
+:root{color-scheme:light;--paper:#f5f5ed;--ink:#172e2a;--muted:#445951;--line:#d5ded4;--accent:#135c49;--surface:#fffef8}
+*{box-sizing:border-box}html{scroll-padding-top:1rem}body{margin:0;background:var(--paper);color:var(--ink);font:1rem/1.65 "Instrument Sans",system-ui,sans-serif}
+header,main,footer{width:min(100% - 2rem,53rem);margin:auto}header{padding:4.5rem 0 2rem}h1,h2,h3{line-height:1.16}h1{font-family:"Instrument Serif",Georgia,serif;font-size:clamp(2.35rem,7vw,5rem);letter-spacing:-.045em;margin:.4rem 0 1rem;overflow-wrap:anywhere}h2{font-size:clamp(1.35rem,4vw,1.9rem);margin:0 0 1rem}h3{font-size:1.1rem;margin-top:1.5rem}p,ul{margin:.65rem 0}a{color:var(--accent);text-underline-offset:.2em}nav{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1.7rem}nav a,.button{padding:.42rem .75rem;border:1px solid var(--line);border-radius:.45rem;text-decoration:none;background:var(--surface)}.button{display:inline-block;background:var(--accent);color:white;font-weight:650}section{padding:clamp(1rem,4vw,2rem);margin-bottom:1rem;border:1px solid var(--line);border-radius:1rem;background:var(--surface)}
+small,.muted{color:var(--muted)}code,pre{font-family:"IBM Plex Mono",ui-monospace,monospace}code{font-size:.92em}pre{overflow:auto;background:#193a33;color:#f4faf2;padding:1rem;border-radius:.55rem;line-height:1.5}table{border-collapse:collapse;width:100%;font-size:.94em}td,th{text-align:left;padding:.55rem .5rem;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--accent)}.table{overflow:auto}li{margin:.3rem 0}ol{padding-left:1.4rem}ol>li{padding:.65rem 0;border-bottom:1px solid var(--line)}details{margin:.45rem 0 .2rem;padding:.3rem .7rem;background:#eef4eb;border-radius:.45rem}summary{cursor:pointer;color:var(--accent);font-weight:650}a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}footer{padding:1rem 0 3rem}
+@media(max-width:38rem){header{padding-top:2.5rem}th,td{min-width:7rem}}
+</style>
+</head>
+<body>
+<header>
+<small>Биоинформатика · Лекция 6 и семинар 5</small>
+<h1>Выравнивание последовательностей</h1>
+<p class="muted">Теория, разобранные примеры и семь заданий с ответами для самопроверки.</p>
+<a class="button" href="#quiz">Перейти к пробному квизу</a>
+<nav aria-label="Темы">
+<a href="#types">Типы</a><a href="#scoring">Скоринг</a><a href="#dp">Динамическое программирование</a><a href="#globins">Глобины</a><a href="#sp">Сумма пар</a><a href="#seminar">Семинар</a>
+</nav>
+</header>
+<main>
+<section id="types">
+<h2>Типы парных выравниваний</h2>
+<div class="table"><table>
+<thead><tr><th scope="col">Тип</th><th scope="col">Что выравниваем</th><th scope="col">Пример</th></tr></thead>
+<tbody>
+<tr><th scope="row">Глобальное</th><td>Обе последовательности целиком. Концевые гэпы штрафуются. Алгоритм Needleman–Wunsch.</td><td>Два полноразмерных ортолога.</td></tr>
+<tr><th scope="row">Локальное</th><td>Лучшую пару участков. Оба участка могут лежать внутри последовательностей. Алгоритм Smith–Waterman.</td><td>Общий домен двух белков.</td></tr>
+<tr><th scope="row">Перекрывающееся</th><td>Обычно суффикс одной последовательности и префикс другой. В варианте лекции свободны концы обеих последовательностей, поэтому допускается и вложение.</td><td>Перекрывающиеся прочтения.</td></tr>
+<tr><th scope="row">Полуглобальное</th><td>Штраф за концевые гэпы убирают на выбранных концах.</td><td>Короткая последовательность целиком внутри длинной.</td></tr>
+</tbody></table></div>
+<p>У <code>TTAC</code> и <code>ACGG</code> общий участок <code>AC</code> лежит на концах. У <code>TTACGG</code> и <code>CCACAA</code> тот же участок лежит внутри обеих последовательностей. Локальный алгоритм может выбрать его целиком, а overlap из лекции требует прохода от одной границы матрицы до другой.</p>
+</section>
+<section id="scoring">
+<h2>Скоринг парного выравнивания</h2>
+<p>В простой схеме совпадение даёт <strong>+1</strong>, замена <strong>−1</strong>, символ напротив гэпа <strong>−2</strong>. Общий балл равен сумме вкладов.</p>
+<pre aria-label="Пример подсчёта балла"> A  C  -  G  T
+ A  T  C  G  -
++1 −1 −2 +1 −2 = −3</pre>
+<ul>
+<li><strong>Линейный штраф</strong> за гэп длины <var>k</var> равен −<var>kd</var>. При <var>d</var> = 2 три дефиса стоят −6 независимо от расположения.</li>
+<li><strong>Аффинный штраф</strong> равен −<var>d</var> − (<var>k</var> − 1)<var>e</var>. Первый дефис оплачивается открытием, остальные продлением. При открытии 5 и продлении 1 один блок из трёх дефисов даёт −7, три отдельных гэпа дают −15.</li>
+<li><strong>Матрица идентичности</strong> различает совпадение и замену. <strong>BLOSUM</strong> задаёт отдельную оценку для каждой пары аминокислот. Некоторые замены получают положительный балл. <a href="https://pubmed.ncbi.nlm.nih.gov/1438297/">Статья о BLOSUM</a></li>
+</ul>
+<p><strong>Идентичность</strong> — доля точных совпадений с указанным знаменателем. В отчёте на слайде 12 <code>Identities = 33/137</code>, а <code>Positives = 55/137</code>. Второй показатель включает также замены с положительным баллом.</p>
+</section>
+<section id="dp">
+<h2>Динамическое программирование</h2>
+<p>Пусть <var>x</var> идёт по строкам, <var>y</var> — по столбцам. При глобальном выравнивании <code>F[i,j]</code> — лучший балл выравнивания их префиксов длины <var>i</var> и <var>j</var>. Для каждой клетки сравни три варианта последнего столбца. <var>g</var> — отрицательный линейный штраф.</p>
+<div class="table"><table><thead><tr><th scope="col">Переход</th><th scope="col">Столбец</th><th scope="col">Баллы</th></tr></thead><tbody>
+<tr><th scope="row">Диагональ ↖</th><td>xᵢ / yⱼ</td><td><code>F[i−1,j−1] + s(xᵢ,yⱼ)</code></td></tr>
+<tr><th scope="row">Сверху ↑</th><td>xᵢ / −</td><td><code>F[i−1,j] + g</code></td></tr>
+<tr><th scope="row">Слева ←</th><td>− / yⱼ</td><td><code>F[i,j−1] + g</code></td></tr>
+</tbody></table></div>
+<p>Берём максимум. При фиксированном последнем столбце оптимальный ответ использует оптимальное решение предыдущей подзадачи. Без этого её можно было бы заменить и улучшить ответ. Таблица хранит ответы для повторного использования. Время заполнения и память полной таблицы — O(nm).</p>
+<div class="table"><table><thead><tr><th scope="col">Режим</th><th scope="col">Края и переходы</th><th scope="col">Обратный проход</th></tr></thead><tbody>
+<tr><th scope="row">Глобальный</th><td>Первая строка и столбец <code>0, g, 2g, …</code>. Три перехода.</td><td>Из нижнего правого угла до <code>(0,0)</code>.</td></tr>
+<tr><th scope="row">Локальный</th><td>На краях нули. В максимум включаем ещё <code>0</code>.</td><td>Из максимума всей матрицы до первой клетки с нулём.</td></tr>
+<tr><th scope="row">Overlap</th><td>На краях нули. Три перехода.</td><td>Из максимума на последней строке или столбце до верхней или левой границы.</td></tr>
+</tbody></table></div>
+<p>Чтобы целиком уложить короткую <var>x</var> в длинную <var>y</var>, обнули первую строку, оставь штрафы в первом столбце и бери максимум последней строки. Это освобождает префикс и суффикс длинной последовательности.</p>
+<h3>Глобальное выравнивание AG и ACG</h3>
+<pre aria-label="Глобальная матрица для AG и ACG">       ∅   A   C   G
+  ∅    0  -2  -4  -6
+  A   -2   1  -1  -3
+  G   -4  -1   0   0</pre>
+<p>В нижней правой клетке кандидаты: <code>−1+1=0</code> по диагонали, <code>−3−2=−5</code> сверху, <code>0−2=−2</code> слева. Обратный путь <code>↖ ← ↖</code> даёт столбцы <code>G/G</code>, <code>−/C</code>, <code>A/A</code>. Читаем их с конца и получаем <code>A-G / ACG</code>, балл <strong>0</strong>. Равные максимумы могут давать несколько оптимальных путей.</p>
+</section>
+<section id="globins">
+<h2>Эволюция глобинов</h2>
+<p><strong>Предковый глобин → дупликации и расхождение копий → ветви миоглобинов и гемоглобинов → разделение гемоглобиновой линии на α- и β-подобные глобины.</strong> Позднейшие дупликации дали гены, активные на разных стадиях развития. Основной взрослый гемоглобин человека HbA — α₂β₂, фетальный HbF — α₂γ₂. <a href="https://pubmed.ncbi.nlm.nih.gov/20047955/">Исследование α- и β-глобинов</a></p>
+<ul>
+<li>Гомологи имеют общее происхождение. Паралоги разошлись после дупликации, как α- и β-глобины. Ортологи разошлись при разделении видов.</li>
+<li>Миоглобин связывает кислород в мышцах и обычно работает как мономер. HbA переносит кислород в крови, состоит из четырёх цепей и связывает кислород кооперативно.</li>
+<li>В лекционном примере у миоглобина и гемоглобина 24% идентичности в показанном выравнивании. Глобиновая укладка при этом может сохраняться. Вставки и делеции в петлях иногда совместимы с сохранением общей структуры. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3245541/">Исследование эволюции семейства глобинов</a></li>
+</ul>
+</section>
+<section id="sp">
+<h2>Множественное выравнивание и сумма пар</h2>
+<p>В каждом столбце возьми <strong>все неупорядоченные пары строк</strong>. Для <var>k</var> строк это <var>k</var>(<var>k</var>−1)/2 пар на столбец. Сложи оценки по всем столбцам. В примере пара <code>-/-</code> даёт 0.</p>
+<pre aria-label="Множественное выравнивание из трёх строк">1  A C - G
+2  A - T G
+3  A C - -</pre>
+<div class="table"><table><thead><tr><th scope="col">Столбец</th><th scope="col">Пары 1–2, 1–3, 2–3</th><th scope="col">Сумма</th></tr></thead><tbody>
+<tr><th scope="row"><code>A A A</code></th><td>+1, +1, +1</td><td>+3</td></tr>
+<tr><th scope="row"><code>C - C</code></th><td>−2, +1, −2</td><td>−3</td></tr>
+<tr><th scope="row"><code>- T -</code></th><td>−2, 0, −2</td><td>−4</td></tr>
+<tr><th scope="row"><code>G G -</code></th><td>+1, −2, −2</td><td>−3</td></tr>
+</tbody></table></div>
+<p><strong>Итого −7.</strong> Можно считать и по парам строк, сохраняя столбцы готового выравнивания. Если для каждой пары задан аффинный штраф, сначала удали из её проекции столбцы <code>-/-</code>, затем посчитай открытия и продления блоков гэпов.</p>
+</section>
+<section id="seminar">
+<h2>Что запомнить из семинара</h2>
+<ul>
+<li><strong>CytBProt и две матрицы.</strong> Сравнивай положение гэпов и консервативные блоки при BLOSUM и матрице идентичности. Для полноразмерных близких гомологов сходной длины очень длинные гэпы обычно не ожидаются.</li>
+<li><strong>CytBProt и CytBDNA.</strong> Синонимичные замены меняют ДНК, сохраняя аминокислоту. Внутренний гэп длины, не кратной трём, в выравнивании целых кодирующих последовательностей стоит проверить на артефакт или сдвиг рамки.</li>
+<li><strong>Arabidopsis и гексокиназы.</strong> Сохранение участка у растения и позвоночных позволяет предположить функциональное или структурное ограничение. Если гексокиназа 1 человека ближе к гексокиназе 1 собаки, чем к гексокиназе 2 человека, это согласуется с дупликацией до разделения видов. Для сравнения скоростей эволюции нужны сопоставимые ветви, единицы и модель расстояния.</li>
+</ul>
+</section>
+<section id="quiz">
+<h2>Пробный квиз</h2>
+<p>Дай себе 15 минут. Раскрывай ответ после решения.</p>
+<ol>
+<li>Выбери тип для двух полноразмерных ортологов, общего внутреннего домена, перекрывающихся концов прочтений и короткой последовательности, целиком вложенной в длинную.
+<details><summary>Ответ</summary><p>Глобальное, локальное, перекрывающееся и полуглобальное соответственно.</p></details></li>
+<li>Посчитай балл <code>AC-GT / A-CGT</code> при <code>+1 / −1 / −2</code>.
+<details><summary>Ответ</summary><p><code>+1−2−2+1+1 = −1</code>.</p></details></li>
+<li>При открытии 5 и продлении 1 оцени один блок гэпа длины 4 и два блока длины 2.
+<details><summary>Ответ</summary><p>Один блок: <code>−5−3 = −8</code>. Два блока: <code>2×(−5−1) = −12</code>.</p></details></li>
+<li>Заполни локальную матрицу для <code>TAC</code> по строкам и <code>GAC</code> по столбцам при <code>+1 / −1 / −2</code>. Восстанови выравнивание.
+<details><summary>Ответ</summary><p><code>AC / AC</code>, балл <strong>2</strong>. Два диагональных шага из <code>(3,3)</code> до нуля в <code>(1,1)</code>.</p>
+<pre aria-label="Локальная матрица для TAC и GAC">       ∅  G  A  C
+  ∅    0  0  0  0
+  T    0  0  0  0
+  A    0  0  1  0
+  C    0  0  0  2</pre></details></li>
+<li>Найди лучшее перекрытие <code>TTAC</code> по строкам и <code>ACGG</code> по столбцам при той же схеме. Укажи координаты начала и конца.
+<details><summary>Ответ</summary><p><code>AC / AC</code>, балл <strong>2</strong>. От <code>(2,0)</code> до <code>(4,2)</code> двумя диагоналями. Префикс <code>TT</code> первой последовательности и суффикс <code>GG</code> второй свободны.</p></details></li>
+<li>Объясни вслух, как появились α- и β-глобины, чем различаются HbA и HbF и почему структура может сохраняться при низкой идентичности.
+<details><summary>Ответ</summary><p>Дупликация предкового гена и расхождение копий. HbA — α₂β₂, HbF — α₂γ₂. Часть замен и вставок, например в петлях, совместима с сохранением глобиновой укладки.</p></details></li>
+<li>Найди сумму пар при <code>+1 / −1 / −2</code> и <code>-/- = 0</code>.
+<pre aria-label="Четыре строки для задачи на сумму пар">AC-G
+A-TG
+AC--
+AT-G</pre>
+<details><summary>Ответ</summary><p>Шесть пар на столбец. Вклады <code>+6, −7, −6, −3</code>, результат <strong>−10</strong>. В <code>C - C T</code> одна пара <code>C/C</code>, две <code>C/T</code> и три пары с гэпом.</p></details></li>
+</ol>
+</section>
+</main>
+<footer><small>По лекции 6 Марии Попцовой и материалам семинара 5. Задания составлены для самопроверки.</small></footer>
+</body>
+</html>
